@@ -1,9 +1,10 @@
 import RPi.GPIO as GPIO
 from suntime import Sun
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 import pytz
 
+pst=pytz.timezone('US/Pacific')
 utc=pytz.UTC
 
 # For Postal Code 92083
@@ -25,11 +26,15 @@ while True:
     time.sleep(10)
 '''
 while True:
-    sunrise = sun.get_sunrise_time().replace(tzinfo=utc)
-    sunset = sun.get_sunset_time().replace(tzinfo=utc)
-    now = datetime.now().replace(tzinfo=utc)
-    print("Sunrise:", sunrise, "Sunset:", sunset, "Now:", now)
-
+    sunrise = sun.get_sunrise_time().astimezone(pst)
+    sunset = sun.get_sunset_time().astimezone(pst)
+    if sunrise > sunset: # Bug in API, time is behind
+        sunset = sunset + timedelta(days=1)
+    now = datetime.now(pst) # Needed for "TypeError: can't compare offset-naive and offset-aware datetimes"
+    print("Sunrise:", sunrise.strftime("%m %d %Y %H:%M:%S %Z"),
+          "Sunset:", sunset.strftime("%m %d %Y %H:%M:%S %Z"),
+          "Now:", now.strftime("%m %d %Y %H:%M:%S %Z"))
+    
     if(now >= sunset): # Nighttime
         print("Turning on relay...")
         GPIO.output(12, GPIO.LOW) # Turn on relay (GPIO.LOW because of transistor logic)
@@ -38,6 +43,6 @@ while True:
         GPIO.output(12, GPIO.HIGH) # Turn off relay
 
     time.sleep(600) # Loop every 10 mins/600 seconds
- 
+
 GPIO.cleanup()
   
